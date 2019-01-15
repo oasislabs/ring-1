@@ -58,7 +58,7 @@ if [[ "$TARGET_X" =~ ^(arm|aarch64) && ! "$TARGET_X" =~ android ]]; then
   sudo apt-get install --no-install-recommends binfmt-support qemu-user-binfmt -y
 fi
 
-if [[ ! "$TARGET_X" =~ "x86_64-" ]]; then
+if [[ "$TARGET_X" != "$(rustc --version --verbose|sed -n 's/^host: //p')" ]]; then
   rustup target add "$TARGET_X"
 
   # By default cargo/rustc seems to use cc for linking, We installed the
@@ -103,7 +103,15 @@ else
 fi
 
 if [[ -z "${ANDROID_ABI-}" ]]; then
-  cargo test -vv -j2 ${mode-} ${FEATURES_X-} --target=$TARGET_X
+  case $TARGET_X in
+  x86_64-fortanix-unknown-sgx)
+    # Can't run SGX in Travis. Only build, but don't run, the tests
+    RUSTFLAGS="-C target-feature=+aes,+pclmul" cargo test -vv -j2 --no-run ${mode-} ${FEATURES_X-} --target=$TARGET_X
+    ;;
+  *)
+    cargo test -vv -j2 ${mode-} ${FEATURES_X-} --target=$TARGET_X
+    ;;
+  esac
 else
   cargo test -vv -j2 --no-run ${mode-} ${FEATURES_X-} --target=$TARGET_X
 

@@ -48,6 +48,7 @@ compilers = {
     "arm-unknown-linux-gnueabihf" : [ "arm-linux-gnueabihf-gcc" ],
     "i686-unknown-linux-gnu" : linux_compilers,
     "x86_64-unknown-linux-gnu" : linux_compilers,
+    "x86_64-fortanix-unknown-sgx" : linux_compilers,
     "x86_64-apple-darwin" : osx_compilers,
 }
 
@@ -78,17 +79,20 @@ targets = {
         "aarch64-unknown-linux-gnu",
         "i686-unknown-linux-gnu",
         "arm-unknown-linux-gnueabihf",
+        "x86_64-fortanix-unknown-sgx",
     ],
 }
 
 def format_entries():
-    return "\n".join([format_entry(os, target, compiler, rust, mode, features)
-                      for rust in rusts
-                      for os in oss
-                      for target in targets[os]
-                      for compiler in compilers[target]
-                      for mode in modes
-                      for features in feature_sets])
+    return "\n".join([entry for entry in
+                      (format_entry(os, target, compiler, rust, mode, features)
+                       for rust in rusts
+                       for os in oss
+                       for target in targets[os]
+                       for compiler in compilers[target]
+                       for mode in modes
+                       for features in feature_sets)
+                      if entry is not None])
 
 # We use alternative names (the "_X" suffix) so that, in mk/travis.sh, we can
 # ensure that we set the specific variables we want and that no relevant
@@ -113,6 +117,12 @@ entry_sources_template = """
             %(sources)s"""
 
 def format_entry(os, target, compiler, rust, mode, features):
+    if target == "x86_64-fortanix-unknown-sgx" and rust != "nightly":
+        return
+    # Tracked in https://github.com/fortanix/rust-sgx/issues/64
+    if target == "x86_64-fortanix-unknown-sgx" and compiler == "clang":
+        return
+
     target_words = target.split("-")
     arch = target_words[0]
     vendor = target_words[1]
@@ -131,10 +141,8 @@ def format_entry(os, target, compiler, rust, mode, features):
     template = entry_template
 
     if sys == "darwin":
-        abi = sys
         sys = "macos"
     elif sys == "androideabi":
-        abi = sys
         sys = "linux"
         template += """
       language: android
@@ -152,6 +160,8 @@ def format_entry(os, target, compiler, rust, mode, features):
         components:
         - android-21
         - build-tools-26.0.2"""
+    elif target == "x86_64-fortanix-unknown-sgx":
+        sys = "linux"
     else:
         abi = target_words[3]
 
@@ -279,7 +289,7 @@ def main():
         file.seek(0)
         file.write(new_contents)
         file.truncate()
-        print new_contents
+        print new_contents,
 
 if __name__ == '__main__':
     main()
