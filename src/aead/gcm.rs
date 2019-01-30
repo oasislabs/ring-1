@@ -15,7 +15,7 @@
 use super::{Aad, Block, BLOCK_LEN};
 use crate::cpu;
 
-#[cfg(not(target_arch = "aarch64"))]
+#[cfg(not(any(target_arch = "aarch64", target_env = "sgx")))]
 mod gcm_nohw;
 
 pub struct Key(HTable);
@@ -65,7 +65,7 @@ impl Key {
                 }
             }
 
-            #[cfg(not(target_arch = "aarch64"))]
+            #[cfg(not(any(target_arch = "aarch64", target_env = "sgx")))]
             Implementation::Fallback => {
                 h_table.Htable[0] = gcm_nohw::init(h);
             }
@@ -168,7 +168,7 @@ impl Context {
                 }
             }
 
-            #[cfg(not(target_arch = "aarch64"))]
+            #[cfg(not(any(target_arch = "aarch64", target_env = "sgx")))]
             Implementation::Fallback => {
                 gcm_nohw::ghash(xi, h_table.Htable[0], input);
             }
@@ -210,7 +210,7 @@ impl Context {
                 }
             }
 
-            #[cfg(not(target_arch = "aarch64"))]
+            #[cfg(not(any(target_arch = "aarch64", target_env = "sgx")))]
             Implementation::Fallback => {
                 gcm_nohw::gmult(xi, h_table.Htable[0]);
             }
@@ -228,6 +228,7 @@ impl Context {
     pub(super) fn is_avx2(&self, cpu_features: cpu::Features) -> bool {
         match detect_implementation(cpu_features) {
             Implementation::CLMUL => has_avx_movbe(self.cpu_features),
+            #[cfg(not(target_env = "sgx"))]
             _ => false,
         }
     }
@@ -288,7 +289,7 @@ enum Implementation {
     #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
     NEON,
 
-    #[cfg(not(target_arch = "aarch64"))]
+    #[cfg(not(any(target_arch = "aarch64", target_env = "sgx")))]
     Fallback,
 }
 
@@ -330,7 +331,12 @@ fn detect_implementation(cpu_features: cpu::Features) -> Implementation {
         return Implementation::NEON;
     }
 
-    #[cfg(not(target_arch = "aarch64"))]
+    #[cfg(target_env = "sgx")]
+    {
+        panic!("No GCM implementation available!")
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_env = "sgx")))]
     Implementation::Fallback
 }
 
