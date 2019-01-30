@@ -339,6 +339,7 @@ internal_benches = []
 slow_tests = []
 std = ["alloc"]
 test_logging = []
+force_std_detection = []
 
 # XXX: debug = false because of https://github.com/rust-lang/rust/issues/34122
 

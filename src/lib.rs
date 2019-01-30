@@ -32,6 +32,12 @@
 //!         <code>dev_urandom_fallback</code> feature is disabled, such
 //!         fallbacks will not occur. See the documentation for
 //!         <code>rand::SystemRandom</code> for more details.
+//! <tr><td><code>force_std_detection</code>
+//!     <td>This is only applicable to x86. By default, <i>ring</i> will use
+//!         custom logic with the CPUID instruction to figure out which CPU
+//!         features are available. With this feature, the standard
+//!         <code>std::is_x86_feature_detected</code> macro will be used
+//!         instead.
 //! <tr><td><code>std</code>
 //!     <td>Enable features that use libstd, in particular `std::error::Error`
 //!         integration.
@@ -62,7 +68,23 @@
     unused_results,
     warnings
 )]
-#![no_std]
+// We need std for CPU feature detection in cpu.rs as is_x86_feature_detected is not exposed from libcore (see https://github.com/rust-lang/rfcs/pull/2725).
+#![cfg_attr(
+    not(any(
+        feature = "force_std_detection",
+        all(target_env = "sgx", target_vendor = "fortanix")
+    )),
+    no_std
+)]
+// We need stdsimd for CPU feature detection in cpu.rs.
+#![cfg_attr(
+    any(
+        feature = "force_std_detection",
+        all(target_env = "sgx", target_vendor = "fortanix")
+    ),
+    allow(unstable_features),
+    feature(stdsimd)
+)]
 #![cfg_attr(feature = "internal_benches", allow(unstable_features), feature(test))]
 
 #[cfg(feature = "alloc")]
